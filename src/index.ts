@@ -114,14 +114,26 @@ const proxy_server = (options: CliOptions, logger: Logger) => {
         debugMessageEmitter.emit("proxymessage", message);
     };
 
-    wss.on("connection", (ws: WebSocket) => {
-        logger.info("[cdp] CDP client connected");
+    wss.on("connection", (ws: WebSocket, request) => {
+        const isControlClient = request.url?.startsWith("/__wmpf_control__") ?? false;
+        logger.info(
+            isControlClient
+                ? "[cdp-control] browser target controller connected"
+                : "[cdp] CDP client connected",
+        );
         ws.on("message", onMessage);
         ws.on("error", (err) => {
-            logger.error("[cdp] CDP client err:", err);
+            logger.error(
+                isControlClient ? "[cdp-control] controller err:" : "[cdp] CDP client err:",
+                err,
+            );
         });
         ws.on("close", () => {
-            logger.info("[cdp] CDP client disconnected");
+            logger.info(
+                isControlClient
+                    ? "[cdp-control] browser target controller disconnected"
+                    : "[cdp] CDP client disconnected",
+            );
         });
     });
 

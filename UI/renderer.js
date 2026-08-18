@@ -15,6 +15,24 @@ const elements = {
     debugFrida: document.querySelector("#debug-frida"),
     autoOpenDevTools: document.querySelector("#auto-open-devtools"),
     autoOpenStatus: document.querySelector("#auto-open-status"),
+    browserTargetButton: document.querySelector("#browser-target-button"),
+    browserEntryStatus: document.querySelector("#browser-entry-status"),
+    browserTargetCount: document.querySelector("#browser-target-count"),
+    browserDrawer: document.querySelector("#browser-drawer"),
+    browserDrawerBackdrop: document.querySelector("#browser-drawer-backdrop"),
+    browserDrawerClose: document.querySelector("#browser-drawer-close"),
+    browserRefreshButton: document.querySelector("#browser-refresh-button"),
+    browserStopButton: document.querySelector("#browser-stop-button"),
+    browserSessionStrip: document.querySelector(".browser-session-strip"),
+    browserSessionTitle: document.querySelector("#browser-session-title"),
+    browserSessionMeta: document.querySelector("#browser-session-meta"),
+    browserDrawerCount: document.querySelector("#browser-drawer-count"),
+    browserTargetViewport: document.querySelector(".browser-target-viewport"),
+    browserTargetEmpty: document.querySelector("#browser-target-empty"),
+    browserTargetEmptyTitle: document.querySelector("#browser-target-empty strong"),
+    browserTargetEmptyCopy: document.querySelector("#browser-target-empty p"),
+    browserTargetList: document.querySelector("#browser-target-list"),
+    browserDocsButton: document.querySelector("#browser-docs-button"),
     portError: document.querySelector("#port-error"),
     startButton: document.querySelector("#start-button"),
     stopButton: document.querySelector("#stop-button"),
@@ -65,6 +83,8 @@ let state = null;
 let logs = [];
 let activeFilter = "all";
 let busy = false;
+let browserBusy = false;
+let browserDrawerReturnFocus = null;
 
 function setText(element, value) {
     element.textContent = String(value);
@@ -168,6 +188,164 @@ function renderAutoOpenStatus() {
     );
 }
 
+function createBrowserTargetElement(target) {
+    const item = document.createElement("li");
+    const kind = document.createElement("span");
+    const copy = document.createElement("span");
+    const title = document.createElement("span");
+    const url = document.createElement("span");
+    const meta = document.createElement("span");
+    const button = document.createElement("button");
+    const isActive = state?.browserTargetId === target.targetId && state?.browserDebugOpen;
+
+    item.className = "browser-target-item";
+    item.dataset.active = String(Boolean(isActive));
+    kind.className = "target-kind";
+    copy.className = "target-copy";
+    title.className = "target-title";
+    url.className = "target-url";
+    meta.className = "target-meta";
+    button.className = "target-open-button";
+    button.type = "button";
+    button.disabled = browserBusy;
+
+    setText(kind, target.type === "webview" ? "WEB" : target.type);
+    setText(title, target.title || "未命名页面");
+    setText(url, target.url || "无页面地址");
+    url.title = target.url || "";
+    setText(
+        meta,
+        `${target.isMiniApp ? "小程序入口" : "浏览器页面"} · ${target.attached ? "已被附加" : "可连接"}`,
+    );
+    setText(button, isActive ? "聚焦" : "调试");
+    button.addEventListener("click", () => openSelectedBrowserTarget(target));
+    copy.append(title, url, meta);
+    item.append(kind, copy, button);
+    return item;
+}
+
+function renderBrowserTargets() {
+    if (!state) return;
+    const targets = Array.isArray(state.browserTargets) ? state.browserTargets : [];
+    const fragment = document.createDocumentFragment();
+    for (const target of targets) fragment.append(createBrowserTargetElement(target));
+    elements.browserTargetList.replaceChildren(fragment);
+    elements.browserTargetEmpty.hidden = targets.length > 0;
+    setText(elements.browserDrawerCount, `${targets.length} TARGET${targets.length === 1 ? "" : "S"}`);
+    setText(elements.browserTargetCount, targets.length ? `${targets.length} 个目标` : "待扫描");
+
+    elements.browserTargetButton.disabled = busy || !state.miniappConnected;
+    elements.browserRefreshButton.disabled = browserBusy || !state.miniappConnected;
+    elements.browserStopButton.hidden = !state.browserDebugOpen;
+    elements.browserStopButton.disabled = browserBusy;
+    elements.browserSessionStrip.dataset.active = String(Boolean(state.browserDebugOpen));
+    elements.browserDrawer.dataset.loading = String(browserBusy);
+
+    if (state.browserDebugOpen) {
+        setText(elements.browserEntryStatus, `正在调试 · ${state.browserTargetTitle || "浏览器页面"}`);
+        setText(elements.browserSessionTitle, state.browserTargetTitle || "浏览器目标已附加");
+        setText(
+            elements.browserSessionMeta,
+            state.browserTargetConnected
+                ? "独立 DevTools 会话已建立"
+                : "已附加目标，正在等待 DevTools 连接",
+        );
+    } else if (state.miniappConnected) {
+        setText(
+            elements.browserEntryStatus,
+            targets.length ? `发现 ${targets.length} 个页面目标` : "运行时已连接 · 可以开始扫描",
+        );
+        setText(
+            elements.browserSessionTitle,
+            state.browserControllerConnected ? "目标控制通道已就绪" : "等待扫描目标",
+        );
+        setText(elements.browserSessionMeta, "需要保持入口小程序运行");
+    } else {
+        setText(elements.browserEntryStatus, "打开小程序后扫描可调试页面");
+        setText(elements.browserSessionTitle, "等待小程序调试通道");
+        setText(elements.browserSessionMeta, "启动服务并在微信中打开一个小程序");
+    }
+
+    if (browserBusy) {
+        setText(elements.browserTargetEmptyTitle, "正在扫描微信运行时");
+        setText(elements.browserTargetEmptyCopy, "正在请求 Target.getTargets，请稍候。 ");
+    } else {
+        setText(elements.browserTargetEmptyTitle, "尚未发现浏览器页面");
+        setText(
+            elements.browserTargetEmptyCopy,
+            "保持小程序打开，然后重新扫描微信运行时中的页面目标。",
+        );
+    }
+}
+
+function openBrowserDrawer() {
+    if (!state?.miniappConnected) {
+        showToast("暂时无法扫描", "请先启动服务并在微信中打开一个小程序", "error");
+        return;
+    }
+    browserDrawerReturnFocus = document.activeElement;
+    elements.browserDrawer.hidden = false;
+    renderBrowserTargets();
+    elements.browserDrawerClose.focus();
+    void refreshBrowserTargets();
+}
+
+function closeBrowserDrawer() {
+    elements.browserDrawer.hidden = true;
+    if (browserDrawerReturnFocus instanceof HTMLElement) browserDrawerReturnFocus.focus();
+    browserDrawerReturnFocus = null;
+}
+
+async function refreshBrowserTargets() {
+    if (browserBusy || !state?.miniappConnected) return;
+    browserBusy = true;
+    renderBrowserTargets();
+    try {
+        const nextState = await desktop.listBrowserTargets();
+        renderState(nextState);
+        if (!nextState.browserTargets.length) {
+            showToast("扫描完成", "没有发现可调试的页面或 WebView");
+        }
+    } catch (error) {
+        showToast("扫描失败", readableError(error), "error");
+    } finally {
+        browserBusy = false;
+        renderBrowserTargets();
+    }
+}
+
+async function openSelectedBrowserTarget(target) {
+    if (browserBusy) return;
+    browserBusy = true;
+    renderBrowserTargets();
+    try {
+        const nextState = await desktop.openBrowserTarget(target.targetId);
+        renderState(nextState);
+        showToast("浏览器调试已启动", target.title || "已打开独立 DevTools 窗口");
+    } catch (error) {
+        showToast("无法附加页面", readableError(error), "error");
+    } finally {
+        browserBusy = false;
+        renderBrowserTargets();
+    }
+}
+
+async function stopBrowserTarget() {
+    if (browserBusy) return;
+    browserBusy = true;
+    renderBrowserTargets();
+    try {
+        const nextState = await desktop.closeBrowserTarget();
+        renderState(nextState);
+        showToast("浏览器调试已结束", "目标会话和独立窗口已关闭");
+    } catch (error) {
+        showToast("关闭失败", readableError(error), "error");
+    } finally {
+        browserBusy = false;
+        renderBrowserTargets();
+    }
+}
+
 function renderState(nextState) {
     state = nextState;
     const phase = state.phase || "idle";
@@ -199,6 +377,7 @@ function renderState(nextState) {
     elements.stopButton.disabled = busy || !active || phase === "stopping";
     elements.openDevToolsButton.disabled = busy || !state.proxyServerReady;
     elements.refreshDevToolsButton.disabled = busy || !state.devToolsOpen;
+    renderBrowserTargets();
 
     if (phase === "error") {
         setCard(
@@ -267,14 +446,20 @@ function renderState(nextState) {
         state.miniappConnected ? "微信运行时链路正常" : active ? "请在微信中打开小程序" : "等待微信端接入",
     );
 
-    const cdpTone = state.cdpConnected ? "success" : state.devToolsOpen ? "warning" : "neutral";
+    const cdpSessionConnected = state.cdpConnected || state.browserTargetConnected;
+    const cdpWindowOpen = state.devToolsOpen || state.browserDebugOpen;
+    const cdpTone = cdpSessionConnected ? "success" : cdpWindowOpen ? "warning" : "neutral";
     setCard(
         elements.cdpCard,
         elements.cdpValue,
         elements.cdpMeta,
         cdpTone,
-        state.cdpConnected ? "会话已建立" : state.devToolsOpen ? "正在连接" : "未连接",
-        state.devToolsOpen ? `DevTools · ${endpoint}` : "控制台尚未打开",
+        cdpSessionConnected ? "会话已建立" : cdpWindowOpen ? "正在连接" : "未连接",
+        state.browserDebugOpen
+            ? `浏览器 · ${state.browserTargetTitle || "页面目标"}`
+            : state.devToolsOpen
+              ? `DevTools · ${endpoint}`
+              : "控制台尚未打开",
     );
 
     const serviceDone = phase === "running";
@@ -285,7 +470,7 @@ function renderState(nextState) {
     );
     setWorkflow(
         elements.workflowConsole,
-        state.cdpConnected ? "done" : state.miniappConnected ? "current" : "pending",
+        cdpSessionConnected ? "done" : state.miniappConnected ? "current" : "pending",
     );
 }
 
@@ -395,6 +580,34 @@ elements.guideButton.addEventListener("click", () => runAction(() => desktop.ope
 elements.browserGuideButton.addEventListener("click", () =>
     runAction(() => desktop.openDocs("browser")),
 );
+elements.browserTargetButton.addEventListener("click", openBrowserDrawer);
+elements.browserDrawerClose.addEventListener("click", closeBrowserDrawer);
+elements.browserDrawerBackdrop.addEventListener("click", closeBrowserDrawer);
+elements.browserRefreshButton.addEventListener("click", refreshBrowserTargets);
+elements.browserStopButton.addEventListener("click", stopBrowserTarget);
+elements.browserDocsButton.addEventListener("click", () =>
+    runAction(() => desktop.openDocs("browser")),
+);
+
+elements.browserDrawer.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeBrowserDrawer();
+        return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = [...elements.browserDrawer.querySelectorAll("button:not(:disabled):not([hidden])")];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+    }
+});
 
 for (const filter of elements.filters) {
     filter.addEventListener("click", () => {

@@ -2,6 +2,19 @@
 
 This is a simple workaround of utilizing existing debugging protocol to debug web pages of WeChat Embedded Browser.
 
+## Electron Control Deck
+
+The Electron panel can automate the target discovery and attachment steps below:
+
+1. Start the debugging service and open a miniapp to initialize the WMPF debugging channel.
+2. Open **Browser Page Radar** in the control panel.
+3. Scan the available `page`, `webview`, and `iframe` targets.
+4. Select **Debug** on a target to open it in a dedicated DevTools window.
+
+The panel prefers flattened CDP sessions and automatically falls back to the legacy
+`Target.sendMessageToTarget` transport when required by an older WMPF Chromium runtime.
+The bootstrap miniapp must remain open for the browser debugging session to continue.
+
 ## Background
 
 Debugging a miniapp using this tool is actually debugging a tab of the embedded browser.

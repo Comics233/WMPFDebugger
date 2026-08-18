@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld(
         stop: () => ipcRenderer.invoke("runtime:stop"),
         openDevTools: () => ipcRenderer.invoke("runtime:open-devtools"),
         refreshDevTools: () => ipcRenderer.invoke("runtime:refresh-devtools"),
+        listBrowserTargets: () => ipcRenderer.invoke("browser:list-targets"),
+        openBrowserTarget: (targetId) =>
+            ipcRenderer.invoke("browser:open-target", targetId),
+        closeBrowserTarget: () => ipcRenderer.invoke("browser:close-target"),
         clearLogs: () => ipcRenderer.invoke("runtime:clear-logs"),
         copyText: (text) => ipcRenderer.invoke("app:copy", text),
         openDocs: (name) => ipcRenderer.invoke("app:open-docs", name),

@@ -234,6 +234,24 @@
                             <span class="toggle" aria-hidden="true"></span>
                         </label>
 
+                        <button class="browser-target-entry" id="browser-target-button" type="button" disabled>
+                            <span class="browser-entry-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="8" />
+                                    <circle cx="12" cy="12" r="2" />
+                                    <path d="M12 4v2M20 12h-2M12 20v-2M4 12h2" />
+                                </svg>
+                            </span>
+                            <span class="browser-entry-copy">
+                                <strong>浏览器页面雷达</strong>
+                                <small id="browser-entry-status">打开小程序后扫描可调试页面</small>
+                            </span>
+                            <span class="browser-target-count" id="browser-target-count">待扫描</span>
+                            <svg class="browser-entry-arrow" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 18 6-6-6-6" />
+                            </svg>
+                        </button>
+
                         <ol class="workflow" aria-label="调试流程">
                             <li id="workflow-service" data-step-state="current">
                                 <span class="workflow-dot">1</span>
@@ -299,6 +317,69 @@
                 <span>WMPFDebugger · Electron control surface</span>
                 <button class="footer-link" id="browser-guide-button" type="button">微信内置浏览器调试说明</button>
             </footer>
+        </div>
+
+        <div class="browser-drawer-layer" id="browser-drawer" hidden>
+            <button class="browser-drawer-backdrop" id="browser-drawer-backdrop" type="button" aria-label="关闭浏览器目标面板"></button>
+            <section class="browser-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="browser-drawer-title">
+                <header class="browser-drawer-header">
+                    <div class="browser-drawer-title">
+                        <span class="scanner-mark" aria-hidden="true">
+                            <svg viewBox="0 0 32 32">
+                                <path d="M6 11V6h5M21 6h5v5M26 21v5h-5M11 26H6v-5" />
+                                <circle cx="16" cy="16" r="5" />
+                                <path d="M16 9v3M23 16h-3M16 23v-3M9 16h3" />
+                            </svg>
+                        </span>
+                        <div>
+                            <p class="section-kicker">TARGET SCANNER</p>
+                            <h2 id="browser-drawer-title">微信浏览器目标</h2>
+                        </div>
+                    </div>
+                    <button class="icon-button" id="browser-drawer-close" type="button" aria-label="关闭浏览器目标面板">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+                    </button>
+                </header>
+
+                <div class="browser-session-strip">
+                    <span class="browser-session-beacon" aria-hidden="true"></span>
+                    <div>
+                        <strong id="browser-session-title">等待扫描目标</strong>
+                        <span id="browser-session-meta">需要保持入口小程序运行</span>
+                    </div>
+                    <button class="text-button browser-stop-button" id="browser-stop-button" type="button" hidden>结束调试</button>
+                </div>
+
+                <div class="browser-drawer-toolbar">
+                    <div>
+                        <span class="target-total" id="browser-drawer-count">0 TARGETS</span>
+                        <span class="target-scope">PAGE · WEBVIEW · IFRAME</span>
+                    </div>
+                    <button class="button target-refresh-button" id="browser-refresh-button" type="button">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M20 11a8 8 0 1 0-2.34 5.66L20 14" />
+                            <path d="M20 6v5h-5" />
+                        </svg>
+                        <span>重新扫描</span>
+                    </button>
+                </div>
+
+                <div class="browser-target-viewport">
+                    <div class="browser-target-empty" id="browser-target-empty">
+                        <span class="radar-visual" aria-hidden="true">
+                            <span></span><span></span><span></span>
+                        </span>
+                        <strong>尚未发现浏览器页面</strong>
+                        <p>保持小程序打开，然后重新扫描微信运行时中的页面目标。</p>
+                    </div>
+                    <ol class="browser-target-list" id="browser-target-list" aria-live="polite"></ol>
+                </div>
+
+                <footer class="browser-drawer-footer">
+                    <p><span aria-hidden="true">!</span> Elements 能力受当前 WMPF 调试协议限制。</p>
+                    <button class="footer-link" id="browser-docs-button" type="button">查看调试说明</button>
+                </footer>
+            </section>
         </div>
 
         <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
