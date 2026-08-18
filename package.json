@@ -1,7 +1,7 @@
 {
   "name": "WMPFDebugger",
   "version": "1.0.0",
-  "main": "src/index.ts",
+  "main": "UI/main.js",
   "license": "GPL-2.0-only",
   "author": "evi0s",
   "dependencies": {
@@ -12,7 +12,13 @@
   "devDependencies": {
     "@types/node": "^24.5.2",
     "@types/ws": "^8.18.1",
+    "electron": "^43.2.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
+  },
+  "scripts": {
+    "start": "node ./node_modules/ts-node/dist/bin.js src/index.ts",
+    "ui": "node ./node_modules/electron/cli.js UI/main.js",
+    "check": "node ./node_modules/typescript/bin/tsc --noEmit"
   }
 }

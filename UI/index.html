@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>WMPF Control Deck</title>
+        <link rel="stylesheet" href="./styles.css" />
+        <script src="./renderer.js" defer></script>
+    </head>
+    <body>
+        <a class="skip-link" href="#main-content">跳到主要内容</a>
+
+        <div class="app-shell">
+            <header class="topbar">
+                <div class="brand-lockup" aria-label="WMPF Control Deck">
+                    <span class="brand-mark" aria-hidden="true">
+                        <svg viewBox="0 0 32 32" focusable="false">
+                            <path d="M7 9.5h18M7 16h18M7 22.5h11" />
+                            <circle cx="22" cy="22.5" r="3" />
+                        </svg>
+                    </span>
+                    <div>
+                        <p class="brand-kicker">WMPF / LOCAL INSTRUMENT</p>
+                        <p class="brand-name">Control Deck</p>
+                    </div>
+                </div>
+
+                <div class="topbar-actions">
+                    <div class="global-state" id="global-state" data-state="idle">
+                        <span class="state-beacon" aria-hidden="true"></span>
+                        <span id="global-state-text">系统待机</span>
+                    </div>
+                    <button class="icon-button" id="guide-button" type="button" aria-label="打开使用说明" title="使用说明">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <main id="main-content" class="main-content" tabindex="-1">
+                <section class="hero-row" aria-labelledby="page-title">
+                    <div>
+                        <p class="section-kicker">SESSION OVERVIEW</p>
+                        <h1 id="page-title">微信运行时调试面板</h1>
+                        <p class="hero-copy" id="runtime-message">等待启动调试服务</p>
+                    </div>
+                    <div class="endpoint-chip" aria-label="CDP 连接地址">
+                        <span class="endpoint-label">CDP ENDPOINT</span>
+                        <code id="endpoint-value">127.0.0.1:62000</code>
+                        <button class="copy-button" id="copy-endpoint-button" type="button" aria-label="复制 CDP 地址">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="9" y="9" width="11" height="11" rx="2" />
+                                <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
+                            </svg>
+                            <span>复制</span>
+                        </button>
+                    </div>
+                </section>
+
+                <section class="status-grid" aria-label="调试链路状态">
+                    <article class="status-card" id="backend-card" data-tone="neutral">
+                        <div class="status-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <rect x="3" y="4" width="18" height="16" rx="3" />
+                                <path d="m7 9 3 3-3 3M13 15h4" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="status-label">后端服务</p>
+                            <p class="status-value" id="backend-value">未启动</p>
+                            <p class="status-meta" id="backend-meta">DEBUG 9421 · CDP 62000</p>
+                        </div>
+                    </article>
+
+                    <article class="status-card" id="runtime-card" data-tone="neutral">
+                        <div class="status-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <rect x="4" y="5" width="16" height="14" rx="2" />
+                                <path d="M8 9h8M8 13h5M9 19v2M15 19v2" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="status-label">WMPF 运行时</p>
+                            <p class="status-value" id="runtime-value">等待检测</p>
+                            <p class="status-meta" id="runtime-meta">尚未注入 Hook</p>
+                        </div>
+                    </article>
+
+                    <article class="status-card" id="miniapp-card" data-tone="neutral">
+                        <div class="status-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M8 8a4 4 0 1 1 3.5 3.97V16" />
+                                <path d="M11.5 20h.01M15 8h6M18 5v6" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="status-label">小程序链路</p>
+                            <p class="status-value" id="miniapp-value">未连接</p>
+                            <p class="status-meta" id="miniapp-meta">等待微信端接入</p>
+                        </div>
+                    </article>
+
+                    <article class="status-card" id="cdp-card" data-tone="neutral">
+                        <div class="status-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M8 12h8M12 8v8" />
+                                <circle cx="12" cy="12" r="9" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="status-label">DevTools 通道</p>
+                            <p class="status-value" id="cdp-value">未连接</p>
+                            <p class="status-meta" id="cdp-meta">控制台尚未打开</p>
+                        </div>
+                    </article>
+                </section>
+
+                <div class="dashboard-grid">
+                    <section class="panel control-panel" aria-labelledby="control-title">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="section-kicker">CONTROL SURFACE</p>
+                                <h2 id="control-title">会话控制</h2>
+                            </div>
+                            <span class="local-badge">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+                                    <path d="m9 12 2 2 4-4" />
+                                </svg>
+                                仅本机
+                            </span>
+                        </div>
+
+                        <form id="control-form" novalidate>
+                            <fieldset class="port-fieldset">
+                                <legend>监听端口</legend>
+                                <div class="field-grid">
+                                    <label class="field">
+                                        <span class="field-label">调试协议</span>
+                                        <span class="input-shell">
+                                            <span class="input-prefix">:</span>
+                                            <input id="debug-port" name="debugPort" type="number" min="1" max="65535" value="9421" inputmode="numeric" />
+                                        </span>
+                                        <span class="field-help">微信运行时固定连接</span>
+                                    </label>
+                                    <label class="field">
+                                        <span class="field-label">CDP 代理</span>
+                                        <span class="input-shell">
+                                            <span class="input-prefix">:</span>
+                                            <input id="cdp-port" name="cdpPort" type="number" min="1" max="65535" value="62000" inputmode="numeric" />
+                                        </span>
+                                        <span class="field-help">DevTools WebSocket</span>
+                                    </label>
+                                </div>
+                                <p class="form-error" id="port-error" role="alert" hidden></p>
+                            </fieldset>
+
+                            <details class="advanced-options">
+                                <summary>
+                                    <span>诊断输出</span>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                                </summary>
+                                <div class="toggle-stack">
+                                    <label class="toggle-row">
+                                        <span>
+                                            <strong>主协议详情</strong>
+                                            <small>输出编码前后的 CDP 消息</small>
+                                        </span>
+                                        <input id="debug-main" type="checkbox" />
+                                        <span class="toggle" aria-hidden="true"></span>
+                                    </label>
+                                    <label class="toggle-row">
+                                        <span>
+                                            <strong>Frida 详情</strong>
+                                            <small>输出 Hook 脚本回传消息</small>
+                                        </span>
+                                        <input id="debug-frida" type="checkbox" />
+                                        <span class="toggle" aria-hidden="true"></span>
+                                    </label>
+                                </div>
+                            </details>
+
+                            <div class="primary-actions">
+                                <button class="button button-primary" id="start-button" type="submit">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z" /></svg>
+                                    <span>启动调试链路</span>
+                                </button>
+                                <button class="button button-danger" id="stop-button" type="button" disabled>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                                    <span>停止</span>
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="panel-rule"></div>
+
+                        <div class="console-launcher">
+                            <div class="launcher-copy">
+                                <span class="launcher-index">02</span>
+                                <div>
+                                    <h3>开发者工具</h3>
+                                    <p>先打开小程序，再建立 DevTools 会话。</p>
+                                </div>
+                            </div>
+                            <div class="launcher-actions">
+                                <button class="button button-secondary" id="open-devtools-button" type="button" disabled>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <rect x="3" y="4" width="18" height="16" rx="2" />
+                                        <path d="M8 9h8M8 13h5" />
+                                    </svg>
+                                    <span>打开控制台</span>
+                                </button>
+                                <button class="icon-button" id="refresh-devtools-button" type="button" aria-label="刷新 DevTools" title="刷新 DevTools" disabled>
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M20 11a8 8 0 1 0-2.34 5.66L20 14" />
+                                        <path d="M20 6v5h-5" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <ol class="workflow" aria-label="调试流程">
+                            <li id="workflow-service" data-step-state="current">
+                                <span class="workflow-dot">1</span>
+                                <span><strong>启动服务</strong><small>初始化 Hook 与代理</small></span>
+                            </li>
+                            <li id="workflow-miniapp" data-step-state="pending">
+                                <span class="workflow-dot">2</span>
+                                <span><strong>打开小程序</strong><small>等待运行时连接</small></span>
+                            </li>
+                            <li id="workflow-console" data-step-state="pending">
+                                <span class="workflow-dot">3</span>
+                                <span><strong>进入控制台</strong><small>建立 CDP 会话</small></span>
+                            </li>
+                        </ol>
+                    </section>
+
+                    <section class="panel log-panel" aria-labelledby="log-title">
+                        <div class="panel-heading log-heading">
+                            <div>
+                                <p class="section-kicker">LIVE TELEMETRY</p>
+                                <h2 id="log-title">运行日志</h2>
+                            </div>
+                            <div class="log-actions">
+                                <span class="live-indicator"><span aria-hidden="true"></span>LIVE</span>
+                                <button class="text-button" id="clear-log-button" type="button">清空</button>
+                            </div>
+                        </div>
+
+                        <div class="filter-bar" role="toolbar" aria-label="日志筛选">
+                            <button type="button" class="filter-chip" data-filter="all" aria-pressed="true">全部</button>
+                            <button type="button" class="filter-chip" data-filter="server" aria-pressed="false">服务</button>
+                            <button type="button" class="filter-chip" data-filter="frida" aria-pressed="false">Frida</button>
+                            <button type="button" class="filter-chip" data-filter="link" aria-pressed="false">链路</button>
+                            <button type="button" class="filter-chip" data-filter="error" aria-pressed="false">错误</button>
+                        </div>
+
+                        <div class="terminal-frame">
+                            <div class="terminal-chrome" aria-hidden="true">
+                                <span></span><span></span><span></span>
+                                <code>local://wmpf/session</code>
+                            </div>
+                            <div class="log-viewport" id="log-viewport">
+                                <div class="empty-log" id="empty-log">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M4 17 10 11 4 5M12 19h8" />
+                                    </svg>
+                                    <p>暂无运行记录</p>
+                                    <span>启动调试链路后，事件会实时显示在这里。</span>
+                                </div>
+                                <ol id="log-list" class="log-list" role="log" aria-live="polite" aria-relevant="additions"></ol>
+                            </div>
+                        </div>
+
+                        <div class="log-footer">
+                            <span id="log-count">0 条记录</span>
+                            <span>最长保留 500 条</span>
+                        </div>
+                    </section>
+                </div>
+            </main>
+
+            <footer class="footer-bar">
+                <span>WMPFDebugger · Electron control surface</span>
+                <button class="footer-link" id="browser-guide-button" type="button">微信内置浏览器调试说明</button>
+            </footer>
+        </div>
+
+        <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+    </body>
+</html>
