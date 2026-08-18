@@ -781,6 +781,24 @@ legend {
     gap: 12px;
 }
 
+.auto-launch-option {
+    min-height: 54px;
+    margin-top: 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    background: linear-gradient(90deg, rgb(101 242 163 / 4%), transparent);
+}
+
+.auto-launch-option:has(input:checked) {
+    border-color: rgb(101 242 163 / 28%);
+    background: rgb(101 242 163 / 6%);
+}
+
+.auto-launch-option:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: 0.68;
+}
+
 .launcher-copy {
     display: flex;
     min-width: 0;

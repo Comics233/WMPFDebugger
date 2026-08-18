@@ -11,6 +11,7 @@ const DEFAULT_CONFIG = Object.freeze({
     cdpPort: 62000,
     debugMain: false,
     debugFrida: false,
+    autoOpenDevTools: false,
 });
 
 const DOC_URLS = Object.freeze({
@@ -99,6 +100,8 @@ function appendLog(message, level = "info", fallbackSource = "system") {
 
 function deriveRuntimeState(message, level) {
     const patch = {};
+    const isNewMiniappConnection =
+        message.includes("miniapp client connected") && !runtimeState.miniappConnected;
 
     if (message.includes("debug server running")) patch.debugServerReady = true;
     if (message.includes("proxy server running")) patch.proxyServerReady = true;
@@ -136,6 +139,22 @@ function deriveRuntimeState(message, level) {
     }
 
     if (Object.keys(patch).length > 0) updateState(patch);
+
+    if (isNewMiniappConnection && runtimeState.config.autoOpenDevTools) {
+        queueMicrotask(() => {
+            if (devToolsWindow && !devToolsWindow.isDestroyed()) return;
+            try {
+                appendLog("检测到小程序连接，正在自动打开 DevTools", "info", "system");
+                createDevToolsWindow();
+            } catch (error) {
+                appendLog(
+                    `自动打开 DevTools 失败：${error instanceof Error ? error.message : error}`,
+                    "error",
+                    "system",
+                );
+            }
+        });
+    }
 }
 
 function validateConfig(input) {
@@ -157,6 +176,7 @@ function validateConfig(input) {
         cdpPort,
         debugMain: Boolean(input?.debugMain),
         debugFrida: Boolean(input?.debugFrida),
+        autoOpenDevTools: Boolean(input?.autoOpenDevTools),
     };
 }
 
@@ -363,7 +383,8 @@ async function runUiSmokeCapture() {
             phase: document.querySelector("#global-state")?.dataset.state,
             startEnabled: !document.querySelector("#start-button")?.disabled,
             bridgeReady: typeof window.wmpfDesktop === "object",
-            logEmpty: !document.querySelector("#empty-log")?.hidden
+            logEmpty: !document.querySelector("#empty-log")?.hidden,
+            autoOpenAvailable: Boolean(document.querySelector("#auto-open-devtools"))
         })`);
         const overflowReport = await mainWindow.webContents.executeJavaScript(`(() => {
             const panel = document.querySelector(".log-panel");
@@ -395,6 +416,7 @@ async function runUiSmokeCapture() {
             !report.startEnabled ||
             !report.bridgeReady ||
             !report.logEmpty ||
+            !report.autoOpenAvailable ||
             Math.abs(overflowReport.panelHeightAfter - overflowReport.panelHeightBefore) > 1 ||
             overflowReport.contentHeight <= overflowReport.viewportHeight ||
             overflowReport.overflowY !== "auto"
@@ -420,7 +442,7 @@ async function runUiSmokeCapture() {
 function createMainWindow() {
     mainWindow = new BrowserWindow({
         width: 1180,
-        height: 880,
+        height: 925,
         minWidth: 920,
         minHeight: 680,
         show: false,

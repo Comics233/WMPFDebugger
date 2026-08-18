@@ -13,6 +13,8 @@ const elements = {
     cdpPort: document.querySelector("#cdp-port"),
     debugMain: document.querySelector("#debug-main"),
     debugFrida: document.querySelector("#debug-frida"),
+    autoOpenDevTools: document.querySelector("#auto-open-devtools"),
+    autoOpenStatus: document.querySelector("#auto-open-status"),
     portError: document.querySelector("#port-error"),
     startButton: document.querySelector("#start-button"),
     stopButton: document.querySelector("#stop-button"),
@@ -84,6 +86,7 @@ function getConfigFromForm() {
         cdpPort: Number(elements.cdpPort.value),
         debugMain: elements.debugMain.checked,
         debugFrida: elements.debugFrida.checked,
+        autoOpenDevTools: elements.autoOpenDevTools.checked,
     };
 }
 
@@ -125,6 +128,7 @@ function restoreConfig() {
         elements.cdpPort.value = String(saved.cdpPort);
         elements.debugMain.checked = Boolean(saved.debugMain);
         elements.debugFrida.checked = Boolean(saved.debugFrida);
+        elements.autoOpenDevTools.checked = Boolean(saved.autoOpenDevTools);
     } catch {
         // 忽略损坏的本地配置，继续使用默认值。
     }
@@ -155,6 +159,15 @@ function isServiceActive() {
     return state && ["starting", "running", "stopping"].includes(state.phase);
 }
 
+function renderAutoOpenStatus() {
+    setText(
+        elements.autoOpenStatus,
+        elements.autoOpenDevTools.checked
+            ? "已开启 · 检测到连接后自动弹出"
+            : "已关闭 · 保持手动打开",
+    );
+}
+
 function renderState(nextState) {
     state = nextState;
     const phase = state.phase || "idle";
@@ -172,6 +185,7 @@ function renderState(nextState) {
         elements.cdpPort.value = String(ports.cdpPort);
         elements.debugMain.checked = Boolean(ports.debugMain);
         elements.debugFrida.checked = Boolean(ports.debugFrida);
+        elements.autoOpenDevTools.checked = Boolean(ports.autoOpenDevTools);
     }
 
     const controlsLocked = busy || active;
@@ -179,6 +193,8 @@ function renderState(nextState) {
     elements.cdpPort.disabled = controlsLocked;
     elements.debugMain.disabled = controlsLocked;
     elements.debugFrida.disabled = controlsLocked;
+    elements.autoOpenDevTools.disabled = controlsLocked;
+    renderAutoOpenStatus();
     elements.startButton.disabled = busy || active;
     elements.stopButton.disabled = busy || !active || phase === "stopping";
     elements.openDevToolsButton.disabled = busy || !state.proxyServerReady;
@@ -358,6 +374,11 @@ for (const input of [elements.debugPort, elements.cdpPort]) {
     input.addEventListener("input", () => showValidationError(validateConfig(getConfigFromForm())));
 }
 
+elements.autoOpenDevTools.addEventListener("change", () => {
+    renderAutoOpenStatus();
+    saveConfig(getConfigFromForm());
+});
+
 elements.stopButton.addEventListener("click", () => runAction(() => desktop.stop()));
 elements.openDevToolsButton.addEventListener("click", () =>
     runAction(() => desktop.openDevTools(), "已打开开发者工具"),
@@ -387,6 +408,7 @@ for (const filter of elements.filters) {
 
 async function initialize() {
     restoreConfig();
+    renderAutoOpenStatus();
     if (!desktop) {
         showToast("桌面桥接不可用", "请通过 Electron 启动本面板", "error");
         elements.startButton.disabled = true;

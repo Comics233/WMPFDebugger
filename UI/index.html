@@ -225,6 +225,15 @@
                             </div>
                         </div>
 
+                        <label class="toggle-row auto-launch-option">
+                            <span>
+                                <strong>小程序连接后自动打开控制台</strong>
+                                <small id="auto-open-status">已关闭 · 保持手动打开</small>
+                            </span>
+                            <input id="auto-open-devtools" type="checkbox" aria-describedby="auto-open-status" />
+                            <span class="toggle" aria-hidden="true"></span>
+                        </label>
+
                         <ol class="workflow" aria-label="调试流程">
                             <li id="workflow-service" data-step-state="current">
                                 <span class="workflow-dot">1</span>
