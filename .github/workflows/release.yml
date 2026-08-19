@@ -1,0 +1,109 @@
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "发布标签，必须与 package.json 版本一致，例如 v1.0.2"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: 构建并发布 Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: 配置 Yarn Classic
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn --version
+
+      - name: 校验发布版本
+        id: release
+        run: |
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          $expectedTag = "v$($package.version)"
+          if ($env:RELEASE_TAG -ne $expectedTag) {
+              throw "发布标签 $env:RELEASE_TAG 与 package.json 版本 $($package.version) 不一致，应使用 $expectedTag"
+          }
+          "version=$($package.version)" >> $env:GITHUB_OUTPUT
+          "tag=$expectedTag" >> $env:GITHUB_OUTPUT
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile --network-timeout 120000
+
+      - name: 类型检查
+        run: yarn run check
+
+      - name: 构建安装版和绿色版
+        run: yarn make:win
+
+      - name: 校验发布文件
+        run: |
+          $setup = Get-Item "out/make/squirrel.windows/x64/WMPFDebugger-Setup.exe"
+          $zips = @(Get-ChildItem "out/make/zip/win32/x64" -Filter "*.zip" -File)
+          if ($zips.Count -ne 1) {
+              throw "绿色版 ZIP 数量异常：$($zips.Count)"
+          }
+          Write-Host "安装包：$($setup.FullName) ($($setup.Length) bytes)"
+          Write-Host "绿色版：$($zips[0].FullName) ($($zips[0].Length) bytes)"
+
+      - name: 保存 Actions 构建产物
+        uses: actions/upload-artifact@v7
+        with:
+          name: WMPFDebugger-${{ steps.release.outputs.version }}-windows-x64
+          path: |
+            out/make/squirrel.windows/x64/WMPFDebugger-Setup.exe
+            out/make/zip/win32/x64/*.zip
+          if-no-files-found: error
+
+      - name: 创建或更新 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = (Resolve-Path "out/make/squirrel.windows/x64/WMPFDebugger-Setup.exe").Path
+          $zip = (Get-ChildItem "out/make/zip/win32/x64" -Filter "*.zip" -File | Select-Object -First 1).FullName
+
+          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          $releaseExists = $LASTEXITCODE -eq 0
+
+          if ($releaseExists) {
+              gh release upload $env:RELEASE_TAG $setup $zip --clobber --repo $env:GITHUB_REPOSITORY
+          } else {
+              gh release create $env:RELEASE_TAG $setup $zip `
+                  --repo $env:GITHUB_REPOSITORY `
+                  --target $env:GITHUB_SHA `
+                  --title "WMPFDebugger $env:RELEASE_TAG" `
+                  --generate-notes
+          }
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "GitHub Release 发布失败，退出码：$LASTEXITCODE"
+          }

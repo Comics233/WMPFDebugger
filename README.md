@@ -1,128 +1,131 @@
-# WMPFDebugger
+# WMPFDebugger Desktop
 
-[English](README.md) | [中文](README.zh.md)
+[![Windows Release](https://github.com/Comics233/WMPFDebugger/actions/workflows/release.yml/badge.svg)](https://github.com/Comics233/WMPFDebugger/actions/workflows/release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/Comics233/WMPFDebugger?display_name=tag)](https://github.com/Comics233/WMPFDebugger/releases/latest)
+[![License](https://img.shields.io/github/license/Comics233/WMPFDebugger)](LICENSE)
 
-Yet another WeChat miniapp debugger on Windows (WMPF).
+面向 Windows 微信小程序运行时（WMPF）的桌面调试工具。项目在
+[evi0s/WMPFDebugger](https://github.com/evi0s/WMPFDebugger) 基础上增加了 Electron
+操作面板、WMPF 25364 适配、内置浏览器页面调试和自动发布流程。
 
-This debugger (tweak) exploits Remote Debug feature provided by wechatdevtools and patches serval restrictions to force miniapp runtime to support full Chrome Debug Protocol, and thus can be directly applied to standard devtools shipped with chromium-based browsers.
+> 本项目仅用于学习、研究和个人调试。使用前请阅读文末免责声明，并自行承担运行时注入带来的风险。
 
+## 主要功能
 
-## Support Status
+- Electron 桌面操作面板，无需手动执行 TypeScript 命令；
+- 启动、停止 WMPF 调试服务并实时展示运行状态；
+- 内置 Chromium DevTools，可直接调试微信小程序；
+- 支持小程序连接后自动打开调试窗口；
+- 浏览器页面雷达，可扫描并调试微信内置浏览器的 `page`、`webview` 和 `iframe`；
+- 运行日志按来源分类并在面板内部滚动，不会撑开页面；
+- 安装版和免安装绿色版均内置运行环境，目标电脑不需要安装 Node.js；
+- GitHub Actions 自动构建 Windows x64 安装包与绿色版 ZIP。
 
+## 支持范围
 
-Version histories:
+- 当前重点测试版本：**WMPF 25364**；
+- 保留上游已有版本的地址配置，实际兼容性取决于对应微信/WMPF 构建；
+- 仅支持 Windows x64；
+- 微信更新 WMPF 后，偏移地址可能需要重新适配。
 
-* 25297 (latest, credit @Yinuo0602, @82539474)
-* 25268 (credit @RuntimeBroker)
-* 20089 (credit @lovejiuwu)
-* 20079 (credit @LiuYJia, @82539474)
-* 20005 (credit @LiuYJia)
-* 20001 (credit @B1397KB)
+检查版本：在任务管理器中找到 `WeChatAppEx.exe`，右键打开文件所在位置，查看路径中
+`RadiumWMPF` 与 `extracted` 之间的数字。
 
-<details>
+## 下载
 
-<summary>Older versions</summary>
+前往 [Releases](https://github.com/Comics233/WMPFDebugger/releases/latest) 下载最新版：
 
-* 19977 (credit @B1397KB, @yunm90872-ui, @chengzongcai)
-* 19921
-* 19899 (credit @mathmonkeyliu)
-* 19881 (credit @WIAIV)
-* 19871
-* 19841 (credit @AwangYes)
-* 19823 (credit @mathmonkeyliu)
-* 19769
-* 19749 (credit @xiaoriri, @Alfalfaaaa, @chengzongcai)
-* 19481 (credit @cosalone, @jiangjie)
-* 19459 (credit @snowflake-x)
-* 19339 (credit @hidacow)
-* 19201 (credit @hidacow)
-* 19027 (credit @XKaguya)
-* 18955 (credit @MapleLeaf2007)
-* 18891 (credit @1357310795)
-* 18787
-* 18151 (credit @1437649480, @zxjBigPower)
-* 18055 (credit @Howard20181)
-* 17127 (credit @Howard20181)
-* 17071 (credit @hyzaw)
-* 17037 (credit @linguo2625469)
-* 16965
-* 16815
-* 16771
-* 16467 (credit @51-xinyu)
-* 16389 (credit @liding58)
-* 16203 (credit @liding58)
-* 16133 (credit @liding58)
-* 14315 (credit @liding58)
-* 14199
-* 14161
-* 13909
-* 13871
-* 13655
-* 13639
-* 13487
-* 13341
-* 13331
-* 11633
-* 11581 (unstable, will connect but crash renderer, feel free to test)
+| 文件                                  | 用途                           |
+| ------------------------------------- | ------------------------------ |
+| `WMPFDebugger-Setup.exe`              | Windows x64 安装版，可覆盖升级 |
+| `WMPFDebugger-win32-x64-<版本号>.zip` | 绿色版，解压后直接运行         |
 
-</details>
+绿色版必须完整解压，不能只复制 `WMPFDebugger.exe`，其旁边的 `resources` 等目录同样是运行所必需的。
 
-To debug web pages of WeChat embedded browser, please refer to [EXTENSION.md](EXTENSION.md). Note that this feature has many limitations currently and is simply a basic workaround.
+当前发布包尚未配置代码签名，Windows 首次运行时可能显示 SmartScreen 提示。
 
-To check your installed version, navigate to Task Manager -> WeChatAppEx -> Right click -> Open file location -> Check the number between `RadiumWMPF` and `extracted`.
+## 使用方法
 
-To adapt to another version, please find the instructions in [ADAPTATION.md](ADAPTATION.md). Alternatively, you can submit an issue for new version adaption and I will try that if I have the binary. Note that only newer version adaption requests will be considered.
+1. 启动微信，并确保微信与 WMPFDebugger 的权限等级一致；
+2. 安装或解压 WMPFDebugger，运行 `WMPFDebugger.exe`；
+3. 保持默认端口或按需修改，点击“启动调试链路”；
+4. 等待面板显示服务已启动，然后在微信中打开目标小程序；
+5. 点击“打开控制台”，或启用“小程序连接后自动打开控制台”。
 
+默认端口：
 
-To upgrade to the latest WMPF (WeChat version > 4.x), download the latest WeChat installer on `pc.weixin.qq.com`. The latest WMPF bundle is packaged with the installer.
+- 小程序调试服务：`9421`；
+- CDP 代理：`62000`。
 
-To upgrade to the latest WMPF (WeChat version < 4.x), type in `:showcmdwnd` in the search bar (do not hit enter), then the command window should pop up. Type in `/plugin set_grayvalue=202&check_update_force` and hit enter, the latest WMPF plugin should be downloaded, if any updates are available. Restart the WeChat to apply plugin upgrade.
+### 调试微信内置浏览器
 
-## Prerequisites
+小程序连接成功后，打开“浏览器页面雷达”，扫描可调试目标并选择页面。入口小程序需要在
+浏览器调试期间保持运行。具体原理、限制和手动操作方式参见 [EXTENSION.md](EXTENSION.md)。
 
-* node.js (requires at least LTS v22)
-    - yarn
-* chromium-based browsers (e.g., Chrome, Edge, etc.)
+## 本地开发
 
-## Quick Start
+环境要求：
 
-**Step 1.** Clone this repo and install dependencies.
+- Windows x64；
+- Node.js 22 LTS 或更高版本；
+- Yarn Classic 1.22.x。
 
-```bash
-git clone https://github.com/evi0s/WMPFDebugger
-cd WMPFDebugger
-yarn
+安装依赖并启动 Electron 面板：
+
+```powershell
+yarn install --frozen-lockfile
+yarn ui
 ```
 
-**Step 2.** Run `src/index.ts` to launch debug server and proxy server, and inject hook script to miniapp runtime.
+常用命令：
 
-```bash
-npx ts-node src/index.ts
+```powershell
+yarn run check       # TypeScript 类型检查
+yarn build:backend   # 编译生产环境后端
+yarn make:portable   # 生成绿色版 ZIP
+yarn make:win        # 生成安装版 EXE 和绿色版 ZIP
+yarn test:packaged   # 验证打包后的后端启动链路
 ```
 
-> Note: After this step, you need to launch the miniapp BEFORE launching the devtools, otherwise you will probably need to kill the server and redo the steps 2 to 4 again.
+本地产物位于：
 
-**Step 3.** Launch any miniapp you would like to debug.
+```text
+out/make/squirrel.windows/x64/WMPFDebugger-Setup.exe
+out/make/zip/win32/x64/WMPFDebugger-win32-x64-<版本号>.zip
+```
 
-**Step 4.** Open your chromium-based browsers, navigate to `devtools://devtools/bundled/inspector.html?ws=127.0.0.1:62000` and profit. You can change the CDP port `CDP_PORT` (62000 in this example) in `src/index.ts` to any port you like.
+## 自动发布
 
-## Screenshots
+[Windows Release](https://github.com/Comics233/WMPFDebugger/actions/workflows/release.yml)
+工作流会在 Windows 托管运行器上完成类型检查、后端编译、Electron Forge 打包和 GitHub
+Release 发布。
 
-![Console in DevTools](screenshots/console.png)
+发布前先修改 `package.json` 中的版本号并提交，然后推送同版本标签：
 
-![Sources in DevTools](screenshots/sources.png)
+```powershell
+git tag v1.0.2
+git push origin v1.0.2
+```
 
-## FAQ
+工作流要求标签严格等于 `v` + `package.json.version`。也可以在 GitHub Actions 页面手动运行
+工作流并输入标签；如果 Release 已存在，流水线会覆盖其中的 EXE 和 ZIP 文件。
 
-Please refer to [FAQ.zh.md](FAQ.zh.md) (Chinese only).
+## 相关文档
 
-Please READ THE FAQ CAREFULLY prior to submitting new issues!
-All newly submitted issues that have EXISTING SOLUTIONS in FAQ will be CLOSED WITHOUT ANY RESPONSE!
+- [EXTENSION.md](EXTENSION.md)：微信内置浏览器调试原理与限制；
+- [ADAPTATION.md](ADAPTATION.md)：新 WMPF 版本偏移适配；
+- [FAQ.zh.md](FAQ.zh.md)：常见问题；
+- [README.zh.md](README.zh.md)：上游功能和命令行用法说明。
 
-## Disclaimer
+## 致谢与版权
 
-BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+- 核心调试协议与注入实现来自 [evi0s/WMPFDebugger](https://github.com/evi0s/WMPFDebugger)；
+- `src/third-party` 中的代码提取自微信开发者工具，其版权归腾讯控股有限公司所有；
+- 其他历史版本贡献者请参见上游项目提交记录。
 
-IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+项目遵循 [GPL-2.0](LICENSE) 许可证。
 
-The code in the `src/third-party` is extracted from `wechatdevtools` and fully copyrighted by Tencent Holdings Ltd.
+## 免责声明
+
+本程序按“原样”提供，不附带任何明示或暗示的担保。使用者需要自行承担程序质量、性能、
+兼容性、数据损失以及账号或运行环境异常等全部风险。本项目与腾讯、微信官方无隶属或授权关系。
