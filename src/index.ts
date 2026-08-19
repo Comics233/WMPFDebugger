@@ -254,7 +254,16 @@ const main = async () => {
     const logger = create_logger(options);
     debug_server(options, logger);
     proxy_server(options, logger);
-    frida_server(options, logger);
+    if (process.env.WMPF_BACKEND_SMOKE === "1") {
+        logger.info("[server] backend smoke mode ready");
+        return;
+    }
+
+    try {
+        await frida_server(options, logger);
+    } catch (error) {
+        logger.error(error instanceof Error ? error.message : error);
+    }
 };
 
 (async () => {

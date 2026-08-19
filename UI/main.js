@@ -1,4 +1,13 @@
-const { app, BrowserWindow, Menu, clipboard, ipcMain, shell } = require("electron");
+const {
+    app,
+    BrowserWindow,
+    Menu,
+    clipboard,
+    crashReporter,
+    ipcMain,
+    shell,
+    utilityProcess,
+} = require("electron");
 const { spawn } = require("node:child_process");
 const { randomBytes } = require("node:crypto");
 const fs = require("node:fs/promises");
@@ -7,8 +16,16 @@ const readline = require("node:readline");
 const WebSocket = require("ws");
 const { WebSocketServer } = require("ws");
 
+const isSquirrelStartup = require("electron-squirrel-startup");
+if (isSquirrelStartup) {
+    app.quit();
+} else {
+    crashReporter.start({ uploadToServer: false });
+}
+
 const PROJECT_ROOT = path.join(__dirname, "..");
 const UI_SMOKE_MODE = process.argv.includes("--ui-smoke");
+const BACKEND_START_TIMEOUT_MS = 12_000;
 const DEFAULT_CONFIG = Object.freeze({
     debugPort: 9421,
     cdpPort: 62000,
@@ -26,6 +43,8 @@ let mainWindow = null;
 let devToolsWindow = null;
 let browserDevToolsWindow = null;
 let serverProcess = null;
+let serverStartupTimer = null;
+let serverStartupFailure = null;
 let stopRequested = false;
 let logSequence = 0;
 let logs = [];
@@ -150,6 +169,8 @@ function deriveRuntimeState(message, level) {
     const nextDebugReady = patch.debugServerReady ?? runtimeState.debugServerReady;
     const nextProxyReady = patch.proxyServerReady ?? runtimeState.proxyServerReady;
     if (nextDebugReady && nextProxyReady && runtimeState.phase === "starting") {
+        clearServerStartupTimer();
+        serverStartupFailure = null;
         patch.phase = "running";
         if (!patch.message) patch.message = "服务已启动，等待打开小程序";
     }
@@ -217,23 +238,40 @@ function resolveNodeExecutable() {
     return process.env.npm_node_execpath || process.env.NODE || "node";
 }
 
+function clearServerStartupTimer() {
+    if (!serverStartupTimer) return;
+    clearTimeout(serverStartupTimer);
+    serverStartupTimer = null;
+}
+
+function getBackendErrorMessage(error, location) {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") {
+        return location ? `${error}（${location}）` : error;
+    }
+    if (error && typeof error === "object") {
+        const type = typeof error.type === "string" ? error.type : "未知错误";
+        const location = typeof error.location === "string" ? `（${error.location}）` : "";
+        return `${type}${location}`;
+    }
+    return String(error);
+}
+
 async function startServer(input) {
     if (serverProcess) return getSnapshot();
 
     const config = validateConfig(input);
-    const tsNodeCli = require.resolve("ts-node/dist/bin.js");
-    const backendEntry = path.join(PROJECT_ROOT, "src", "index.ts");
-    const args = [
-        tsNodeCli,
-        backendEntry,
+    const backendArgs = [
         "--debug-port",
         String(config.debugPort),
         "--cdp-port",
         String(config.cdpPort),
     ];
-    if (config.debugMain) args.push("--debug-main");
-    if (config.debugFrida) args.push("--debug-frida");
+    if (config.debugMain) backendArgs.push("--debug-main");
+    if (config.debugFrida) backendArgs.push("--debug-frida");
 
+    clearServerStartupTimer();
+    serverStartupFailure = null;
     stopRequested = false;
     updateState({
         ...createInitialState(),
@@ -243,16 +281,63 @@ async function startServer(input) {
     });
     appendLog("正在启动 WMPFDebugger 后端服务", "info", "system");
 
-    const child = spawn(resolveNodeExecutable(), args, {
-        cwd: PROJECT_ROOT,
-        windowsHide: true,
-        stdio: ["ignore", "pipe", "pipe"],
-        env: {
-            ...process.env,
-            FORCE_COLOR: "0",
-        },
-    });
+    let child;
+    try {
+        if (app.isPackaged) {
+            const packagedWorkingDirectory = path.dirname(process.execPath);
+            child = utilityProcess.fork(
+                path.join(app.getAppPath(), "dist", "index.js"),
+                backendArgs,
+                {
+                    cwd: packagedWorkingDirectory,
+                    stdio: "pipe",
+                    serviceName: "WMPFDebugger 后端服务",
+                    env: {
+                        ...process.env,
+                        FORCE_COLOR: "0",
+                    },
+                },
+            );
+            appendLog(
+                `安装态后端工作目录：${packagedWorkingDirectory}`,
+                "info",
+                "system",
+            );
+        } else {
+            const tsNodeCli = require.resolve("ts-node/dist/bin.js");
+            const backendEntry = path.join(PROJECT_ROOT, "src", "index.ts");
+            child = spawn(
+                resolveNodeExecutable(),
+                [tsNodeCli, backendEntry, ...backendArgs],
+                {
+                    cwd: PROJECT_ROOT,
+                    windowsHide: true,
+                    stdio: ["ignore", "pipe", "pipe"],
+                    env: {
+                        ...process.env,
+                        FORCE_COLOR: "0",
+                    },
+                },
+            );
+        }
+    } catch (error) {
+        const message = getBackendErrorMessage(error);
+        serverStartupFailure = message;
+        appendLog(`后端进程启动失败：${message}`, "error", "system");
+        updateState({ phase: "error", message, pid: null });
+        throw error;
+    }
     serverProcess = child;
+
+    if (!child.stdout || !child.stderr) {
+        child.kill();
+        serverProcess = null;
+        const message = "无法读取后端进程输出";
+        serverStartupFailure = message;
+        appendLog(message, "error", "system");
+        updateState({ phase: "error", message, pid: null });
+        throw new Error(message);
+    }
 
     const stdoutReader = bindOutput(child.stdout, "info", "backend");
     const stderrReader = bindOutput(child.stderr, "error", "backend");
@@ -262,30 +347,38 @@ async function startServer(input) {
         appendLog(`后端进程已创建，PID ${child.pid}`, "info", "system");
     });
 
-    child.once("error", (error) => {
-        appendLog(`后端进程启动失败：${error.message}`, "error", "system");
-        serverProcess = null;
+    child.once("error", (error, location) => {
+        clearServerStartupTimer();
+        const message = getBackendErrorMessage(error, location);
+        serverStartupFailure = message;
+        appendLog(`后端进程启动失败：${message}`, "error", "system");
         updateState({
             phase: "error",
-            message: error.message,
+            message,
             pid: null,
         });
     });
 
-    child.once("close", (code, signal) => {
+    const handleExit = (code, signal = null) => {
+        clearServerStartupTimer();
         stdoutReader.close();
         stderrReader.close();
         serverProcess = null;
         closeBrowserController();
         const expected = stopRequested;
+        const startupFailure = serverStartupFailure;
+        serverStartupFailure = null;
         const exitLabel = signal ? `信号 ${signal}` : `退出码 ${code ?? "未知"}`;
         appendLog(`后端进程已结束（${exitLabel}）`, expected ? "info" : "error", "system");
         if (devToolsWindow && !devToolsWindow.isDestroyed()) {
             devToolsWindow.close();
         }
         updateState({
-            phase: expected || code === 0 ? "idle" : "error",
-            message: expected ? "调试服务已停止" : `后端异常退出（${exitLabel}）`,
+            phase: expected || (code === 0 && !startupFailure) ? "idle" : "error",
+            message: expected
+                ? "调试服务已停止"
+                : startupFailure ||
+                  (code === 0 ? "后端进程已结束" : `后端异常退出（${exitLabel}）`),
             pid: null,
             exitCode: code,
             debugServerReady: false,
@@ -304,7 +397,22 @@ async function startServer(input) {
             wmpfPid: null,
         });
         stopRequested = false;
-    });
+    };
+
+    if (app.isPackaged) {
+        child.once("exit", (code) => handleExit(code));
+    } else {
+        child.once("close", handleExit);
+    }
+
+    serverStartupTimer = setTimeout(() => {
+        if (serverProcess !== child || runtimeState.phase !== "starting") return;
+        const message = `后端启动超过 ${BACKEND_START_TIMEOUT_MS / 1000} 秒，请检查安装目录和运行日志`;
+        serverStartupFailure = message;
+        appendLog(message, "error", "system");
+        updateState({ phase: "error", message, pid: child.pid ?? null });
+        if (!child.kill()) serverProcess = null;
+    }, BACKEND_START_TIMEOUT_MS);
 
     return getSnapshot();
 }
@@ -316,6 +424,8 @@ async function stopServer() {
     }
 
     stopRequested = true;
+    clearServerStartupTimer();
+    serverStartupFailure = null;
     updateState({ phase: "stopping", message: "正在停止调试服务…" });
     appendLog("正在停止 WMPFDebugger 后端服务", "info", "system");
     serverProcess.kill();

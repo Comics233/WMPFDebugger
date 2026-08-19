@@ -104,6 +104,35 @@ yarn ui
 
 调试微信内置浏览器时，在小程序连接成功后打开“浏览器页面雷达”，扫描 `page`、`webview` 和 `iframe` 目标，选择页面即可在独立 DevTools 窗口中调试。入口小程序需要在浏览器调试期间保持运行。
 
+### 构建 Windows 程序
+
+首次构建先安装依赖，然后生成 64 位 Windows 安装器：
+
+```bash
+yarn
+yarn make:win
+```
+
+构建完成后可使用以下产物：
+
+* `out/make/squirrel.windows/x64/WMPFDebugger-Setup.exe`：供最终用户安装的 Squirrel 安装器；
+* `out/WMPFDebugger-win32-x64/`：免安装应用目录，必须整体复制，不能只复制其中的 EXE。
+* `out/make/zip/win32/x64/WMPFDebugger-win32-x64-<版本号>.zip`：绿色版压缩包，解压后直接运行 `WMPFDebugger.exe`。
+
+只需要生成免安装应用目录、不生成安装器时，可执行：
+
+```bash
+yarn package:win
+```
+
+只生成可分发的绿色版 ZIP 时，可执行：
+
+```bash
+yarn make:portable
+```
+
+打包流程会先将 TypeScript 后端编译到 `dist/`，安装后的应用使用 Electron 内置运行时启动后端，因此目标电脑无需另行安装 Node.js 或 Yarn。当前安装包未配置代码签名，Windows 首次运行时可能显示 SmartScreen 提示。
+
 ### 命令行方式
 
 **第 1 步** 克隆并安装依赖

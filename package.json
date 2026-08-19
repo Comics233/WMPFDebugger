@@ -1,15 +1,22 @@
 {
   "name": "WMPFDebugger",
-  "version": "1.0.0",
+  "productName": "WMPFDebugger",
+  "version": "1.0.2",
+  "description": "Windows 微信小程序与内置浏览器调试控制台",
   "main": "UI/main.js",
   "license": "GPL-2.0-only",
   "author": "evi0s",
   "dependencies": {
+    "electron-squirrel-startup": "^1.0.1",
     "frida": "^17.3.2",
     "protobufjs": "^7.5.4",
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/maker-squirrel": "^7.11.2",
+    "@electron-forge/maker-zip": "^7.11.2",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.11.2",
     "@types/node": "^24.5.2",
     "@types/ws": "^8.18.1",
     "electron": "^43.2.0",
@@ -19,6 +26,11 @@
   "scripts": {
     "start": "node ./node_modules/ts-node/dist/bin.js src/index.ts",
     "ui": "node ./node_modules/electron/cli.js UI/main.js",
-    "check": "node ./node_modules/typescript/bin/tsc --noEmit"
+    "check": "node ./node_modules/typescript/bin/tsc --noEmit",
+    "build:backend": "node ./scripts/build-backend.js",
+    "package:win": "yarn run build:backend && node ./node_modules/@electron-forge/cli/dist/electron-forge.js package --platform=win32 --arch=x64",
+    "make:win": "yarn run build:backend && node ./node_modules/@electron-forge/cli/dist/electron-forge.js make --platform=win32 --arch=x64",
+    "make:portable": "yarn run build:backend && node ./node_modules/@electron-forge/cli/dist/electron-forge.js make --platform=win32 --arch=x64 --targets=@electron-forge/maker-zip",
+    "test:packaged": "node ./scripts/test-packaged-runtime.js"
   }
 }
