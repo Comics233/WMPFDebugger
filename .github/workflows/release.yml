@@ -70,8 +70,11 @@ jobs:
         shell: pwsh
         run: |
           $tag = "v${{ steps.release.outputs.version }}"
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          $releaseMissing = $LASTEXITCODE -ne 0
+          $releases = @(gh release list --limit 1000 --json tagName --repo $env:GITHUB_REPOSITORY | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0) {
+              throw "读取 GitHub Releases 列表失败，退出码：$LASTEXITCODE"
+          }
+          $releaseMissing = -not [bool]($releases | Where-Object { $_.tagName -eq $tag })
           "missing=$($releaseMissing.ToString().ToLower())" >> $env:GITHUB_OUTPUT
           Write-Host "Release $tag 缺失：$releaseMissing"
 
@@ -117,8 +120,11 @@ jobs:
               $releaseTag = "v${{ steps.release.outputs.version }}"
           }
 
-          gh release view $releaseTag --repo $env:GITHUB_REPOSITORY *> $null
-          $releaseExists = $LASTEXITCODE -eq 0
+          $releases = @(gh release list --limit 1000 --json tagName --repo $env:GITHUB_REPOSITORY | ConvertFrom-Json)
+          if ($LASTEXITCODE -ne 0) {
+              throw "读取 GitHub Releases 列表失败，退出码：$LASTEXITCODE"
+          }
+          $releaseExists = [bool]($releases | Where-Object { $_.tagName -eq $releaseTag })
 
           if ($releaseExists) {
               gh release upload $releaseTag $setup $zip --clobber --repo $env:GITHUB_REPOSITORY
