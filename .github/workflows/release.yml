@@ -62,6 +62,17 @@ jobs:
           "version=$($package.version)" >> $env:GITHUB_OUTPUT
           "tag=$expectedTag" >> $env:GITHUB_OUTPUT
 
+      - name: 检查 package.json 版本是否变更
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v')
+        id: version-change
+        shell: pwsh
+        run: |
+          $before = git show "${{ github.event.before }}:package.json" 2>$null | ConvertFrom-Json
+          $after = Get-Content package.json -Raw | ConvertFrom-Json
+          $changed = $before.version -ne $after.version
+          "changed=$($changed.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          Write-Host "版本变化：$($before.version) -> $($after.version)（$changed）"
+
       - name: 安装依赖
         run: yarn install --frozen-lockfile --network-timeout 120000
 
@@ -91,26 +102,32 @@ jobs:
           if-no-files-found: error
 
       - name: 创建或更新 GitHub Release
-        if: env.IS_TAG_RELEASE == 'true'
+        if: env.IS_TAG_RELEASE == 'true' || steps.version-change.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $setup = (Resolve-Path "out/make/squirrel.windows/x64/WMPFDebugger-Setup.exe").Path
           $zip = (Get-ChildItem "out/make/zip/win32/x64" -Filter "*.zip" -File | Select-Object -First 1).FullName
 
-          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          if ($env:IS_TAG_RELEASE -eq "true") {
+              $releaseTag = $env:RELEASE_TAG
+          } else {
+              $releaseTag = "v${{ steps.release.outputs.version }}"
+          }
+
+          gh release view $releaseTag --repo $env:GITHUB_REPOSITORY *> $null
           $releaseExists = $LASTEXITCODE -eq 0
 
           if ($releaseExists) {
-              gh release upload $env:RELEASE_TAG $setup $zip --clobber --repo $env:GITHUB_REPOSITORY
+              gh release upload $releaseTag $setup $zip --clobber --repo $env:GITHUB_REPOSITORY
           } else {
-              gh release create $env:RELEASE_TAG $setup $zip `
+              gh release create $releaseTag $setup $zip `
                   --repo $env:GITHUB_REPOSITORY `
                   --target $env:GITHUB_SHA `
-                  --title "WMPFDebugger $env:RELEASE_TAG" `
+                  --title "WMPFDebugger $releaseTag" `
                   --generate-notes
           }
 
           if ($LASTEXITCODE -ne 0) {
-              throw "GitHub Release 发布失败，退出码：$LASTEXITCODE"
+              throw "GitHub Release $releaseTag 发布失败，退出码：$LASTEXITCODE"
           }
