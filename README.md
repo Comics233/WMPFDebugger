@@ -95,9 +95,9 @@ out/make/zip/win32/x64/WMPFDebugger-win32-x64-<版本号>.zip
 ## 自动发布
 
 [Windows Release](https://github.com/Comics233/WMPFDebugger/actions/workflows/release.yml)
-工作流会在 `main` 分支的 `package.json` 版本号变化后，自动完成检查、Windows x64 打包，并创建或更新对应的 GitHub Release（标签格式为 `v版本号`）。普通工作流配置变更只会构建并保存 Actions artifact。
+工作流会在 `main` 分支推送后检查当前版本的 Release 是否存在；如缺失，则自动完成检查、Windows x64 打包，并创建对应的 GitHub Release（标签格式为 `v版本号`）。若 Release 已存在，构建文件仍可从 Actions artifact 下载。
 
-例如，将 `package.json` 的版本从 `1.0.3` 更新为 `1.0.4` 并推送到 `main` 后，工作流会发布 `v1.0.4`。也可推送与版本号一致的 `v*` 标签来发布。已存在的 Release 会更新其安装包和绿色版 ZIP。
+例如，当前版本为 `1.0.3` 且 `v1.0.3` Release 不存在时，推送到 `main` 会补建该 Release。也可推送与版本号一致的 `v*` 标签来发布；标签触发时，已有 Release 的安装包和绿色版 ZIP 会被覆盖更新。
 
 ## 相关文档
 

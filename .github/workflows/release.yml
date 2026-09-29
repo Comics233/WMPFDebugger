@@ -62,16 +62,18 @@ jobs:
           "version=$($package.version)" >> $env:GITHUB_OUTPUT
           "tag=$expectedTag" >> $env:GITHUB_OUTPUT
 
-      - name: 检查 package.json 版本是否变更
+      - name: 检查版本 Release 是否缺失
         if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v')
-        id: version-change
+        id: version-release
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          $before = git show "${{ github.event.before }}:package.json" 2>$null | ConvertFrom-Json
-          $after = Get-Content package.json -Raw | ConvertFrom-Json
-          $changed = $before.version -ne $after.version
-          "changed=$($changed.ToString().ToLower())" >> $env:GITHUB_OUTPUT
-          Write-Host "版本变化：$($before.version) -> $($after.version)（$changed）"
+          $tag = "v${{ steps.release.outputs.version }}"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          $releaseMissing = $LASTEXITCODE -ne 0
+          "missing=$($releaseMissing.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          Write-Host "Release $tag 缺失：$releaseMissing"
 
       - name: 安装依赖
         run: yarn install --frozen-lockfile --network-timeout 120000
@@ -102,7 +104,7 @@ jobs:
           if-no-files-found: error
 
       - name: 创建或更新 GitHub Release
-        if: env.IS_TAG_RELEASE == 'true' || steps.version-change.outputs.changed == 'true'
+        if: env.IS_TAG_RELEASE == 'true' || steps.version-release.outputs.missing == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
