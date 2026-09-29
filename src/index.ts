@@ -4,6 +4,7 @@ import path from "node:path";
 import * as frida from "frida";
 import WebSocket, { WebSocketServer } from "ws";
 
+import { platform } from "./platform";
 import { parse_cli_options, CliOptions } from "./cli";
 import { create_logger, Logger } from "./logger";
 
@@ -11,6 +12,23 @@ const codex = require("./third-party/RemoteDebugCodex.js");
 const messageProto = require("./third-party/WARemoteDebugProtobuf.js");
 
 class DebugMessageEmitter extends EventEmitter {}
+
+type StructOffsetConfig = {
+    LaunchConfigOffsets: number[];
+    RemoteDebugConfigOffsets: number[];
+    SceneOffset: number;
+    WebSocketURLStringOffset: number;
+    RemoteDebugModeOffset: number;
+}
+
+type HookConfig = {
+    Version: number;
+    LoadStartHookOffset: string;
+    CDPFilterHookOffset: string;
+    CastToJsonHookOffset?: string;
+    SceneOffsets?: number[];
+    MiniAppConfigStructOffsets?: StructOffsetConfig;
+};
 
 const debugMessageEmitter = new DebugMessageEmitter();
 
@@ -20,7 +38,7 @@ const bufferToHexString = (buffer: ArrayBuffer) => {
         .join("");
 };
 
-const debug_server = (options: CliOptions, logger: Logger) => {
+const debugServer = (options: CliOptions, logger: Logger): WebSocketServer  => {
     const wss = new WebSocketServer({ port: options.debugPort });
     logger.info(
         `[server] debug server running on ws://localhost:${options.debugPort}`,
@@ -99,9 +117,10 @@ const debug_server = (options: CliOptions, logger: Logger) => {
                 }
             });
     });
+    return wss;
 };
 
-const proxy_server = (options: CliOptions, logger: Logger) => {
+const proxyServer = (options: CliOptions, logger: Logger): WebSocketServer => {
     const wss = new WebSocketServer({ port: options.cdpPort });
     logger.info(
         `[server] proxy server running on ws://localhost:${options.cdpPort}`,
@@ -146,49 +165,74 @@ const proxy_server = (options: CliOptions, logger: Logger) => {
                 }
             });
     });
+    return wss;
 };
 
-const frida_server = async (options: CliOptions, logger: Logger) => {
-    const localDevice = await frida.getLocalDevice();
-    const processes = await localDevice.enumerateProcesses({
-        scope: frida.Scope.Metadata,
-    });
-    const wmpfProcesses = processes.filter(
-        (process) => process.name === "WeChatAppEx.exe",
-    );
-    const wmpfPids = wmpfProcesses.map((p) =>
-        p.parameters.ppid ? p.parameters.ppid : 0,
+const autoDetectConfig = async (
+    session: frida.Session,
+    projectRoot: string,
+    wmpfVersion: number,
+): Promise<HookConfig> => {
+    let detectorContent: string;
+    try {
+        detectorContent = (
+            await promises.readFile(
+                path.join(
+                    projectRoot,
+                    "frida/autodetect",
+                    `${process.platform}.js`,
+                ),
+            )
+        ).toString();
+    } catch (e) {
+        throw new Error("[frida] auto-detect script not found");
+    }
+
+    const detector = await session.createScript(detectorContent);
+    const detectedConfig = new Promise<Omit<HookConfig, "Version">>(
+        (resolve, reject) => {
+            detector.message.connect((message: frida.Message) => {
+                if (message.type === "error") {
+                    reject(
+                        new Error(
+                            `[frida] auto-detect failed: ${message.description}`,
+                        ),
+                    );
+                    return;
+                }
+
+                const payload = message.payload as {
+                    type?: string;
+                    config?: Omit<HookConfig, "Version">;
+                    error?: string;
+                };
+                if (payload.type === "wmpf-offsets" && payload.config) {
+                    resolve(payload.config);
+                } else if (payload.type === "wmpf-offsets-error") {
+                    reject(
+                        new Error(
+                            `[frida] auto-detect failed: ${payload.error ?? "unknown error"}`,
+                        ),
+                    );
+                }
+            });
+        },
     );
 
-    // find the parent process
-    const wmpfPid = wmpfPids
-        .sort(
-            (a, b) =>
-                wmpfPids.filter((v) => v === a).length -
-                wmpfPids.filter((v) => v === b).length,
-        )
-        .pop();
-    if (wmpfPid === undefined) {
-        throw new Error("[frida] WeChatAppEx.exe process not found");
-        return;
+    try {
+        await detector.load();
+        return { Version: wmpfVersion, ...(await detectedConfig) };
+    } finally {
+        await detector.unload();
     }
-    const wmpfProcess = processes.filter(
-        (process) => process.pid === wmpfPid,
-    )[0];
-    const wmpfProcessPath = wmpfProcess.parameters.path as string | undefined;
-    const wmpfVersionMatch = wmpfProcessPath
-        ? wmpfProcessPath.match(/\d+/g)
-        : "";
-    const wmpfVersion = wmpfVersionMatch
-        ? new Number(wmpfVersionMatch.pop())
-        : 0;
-    if (wmpfVersion === 0) {
-        throw new Error("[frida] error in find wmpf version");
-        return;
-    }
+};
+
+const fridaServer = async (options: CliOptions, logger: Logger): Promise<frida.Session> => {
+    const localDevice = await frida.getLocalDevice();
+    const { pid: wmpfPid, version: wmpfVersion } = await platform.findWmpfProcess()
 
     // attach to process
-    const session = await localDevice.attach(Number(wmpfPid));
+    const session = await localDevice.attach(wmpfPid);
 
     // find hook script
     const projectRoot = path.join(
@@ -206,28 +250,33 @@ const frida_server = async (options: CliOptions, logger: Logger) => {
         ).toString();
     } catch (e) {
         throw new Error("[frida] hook script not found");
-        return;
     }
 
     let configContent: string | null = null;
-    try {
-        configContent = (
-            await promises.readFile(
-                path.join(
-                    projectRoot,
-                    "frida/config",
-                    `addresses.${wmpfVersion}.json`,
-                ),
-            )
-        ).toString();
-        configContent = JSON.stringify(JSON.parse(configContent));
-    } catch (e) {
-        throw new Error(`[frida] version config not found: ${wmpfVersion}`);
+    if (options.autoDetect) {
+        logger.info(`[frida] auto-detecting hook offsets...`);
+        const config = await autoDetectConfig(session, projectRoot, wmpfVersion);
+        configContent = JSON.stringify(config);
+        logger.info(`[frida] detected hook offsets: ${configContent}`);
+    } else {
+        try {
+            configContent = (
+                await promises.readFile(
+                    path.join(
+                        projectRoot,
+                        `frida/config/${process.platform}`,
+                        `addresses.${wmpfVersion}.json`,
+                    ),
+                )
+            ).toString();
+            configContent = JSON.stringify(JSON.parse(configContent));
+        } catch (e) {
+            throw new Error(`[frida] version config not found: ${wmpfVersion}`);
+        }
     }
 
     if (scriptContent === null || configContent === null) {
         throw new Error("[frida] unable to find hook script");
-        return;
     }
 
     // load script
@@ -247,23 +296,36 @@ const frida_server = async (options: CliOptions, logger: Logger) => {
         `[frida] script loaded, WMPF version: ${wmpfVersion}, pid: ${wmpfPid}`,
     );
     logger.info(`[frida] you can now open any miniapps`);
+    return session;
 };
 
 const main = async () => {
     const options = parse_cli_options();
     const logger = create_logger(options);
-    debug_server(options, logger);
-    proxy_server(options, logger);
+    const debugWss = debugServer(options, logger);
+    const proxyWss = proxyServer(options, logger);
     if (process.env.WMPF_BACKEND_SMOKE === "1") {
         logger.info("[server] backend smoke mode ready");
         return;
     }
 
+    let fridaSession: frida.Session;
     try {
-        await frida_server(options, logger);
+        fridaSession = await fridaServer(options, logger);
     } catch (error) {
         logger.error(error instanceof Error ? error.message : error);
+        debugWss.close();
+        proxyWss.close();
+        return;
     }
+
+    process.on("SIGINT", async () => {
+        logger.info("[server] shutting down...");
+        debugWss.close();
+        proxyWss.close();
+        await fridaSession.detach();
+        process.exit(0);
+    });
 };
 
 (async () => {

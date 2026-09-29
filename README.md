@@ -4,9 +4,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/Comics233/WMPFDebugger?display_name=tag)](https://github.com/Comics233/WMPFDebugger/releases/latest)
 [![License](https://img.shields.io/github/license/Comics233/WMPFDebugger)](LICENSE)
 
-面向 Windows 微信小程序运行时（WMPF）的桌面调试工具。项目在
-[evi0s/WMPFDebugger](https://github.com/evi0s/WMPFDebugger) 基础上增加了 Electron
-操作面板、WMPF 25560 适配、内置浏览器页面调试和自动发布流程。
+面向 Windows 微信小程序运行时（WMPF）的桌面调试工具，基于 [上游项目](https://github.com/evi0s/WMPFDebugger) 并集成其多平台适配。
 
 > 本项目仅用于学习、研究和个人调试。使用前请阅读文末免责声明，并自行承担运行时注入带来的风险。
 
@@ -23,26 +21,25 @@
 
 ## 支持范围
 
-- 当前重点测试版本：**WMPF 25560**；
-- 保留上游已有版本的地址配置，实际兼容性取决于对应微信/WMPF 构建；
-- 仅支持 Windows x64；
+- Windows x64：支持自动检测（Beta）及上游已适配版本，包括 25715、25710、25558、25510、25459、25364 和历史版本；本分支另含 WMPF 25560 配置。
+- Linux x86_64：25665、14978、14910。
+- macOS arm64：269136。
 - 微信更新 WMPF 后，偏移地址可能需要重新适配。
 
-检查版本：在任务管理器中找到 `WeChatAppEx.exe`，右键打开文件所在位置，查看路径中
-`RadiumWMPF` 与 `extracted` 之间的数字。
+检查版本：Windows 在任务管理器中查看 `WeChatAppEx.exe` 所在路径；macOS 可检查 `WeChatAppEx.app` 的 `CFBundleVersion`。
 
 ## 下载
 
 前往 [Releases](https://github.com/Comics233/WMPFDebugger/releases/latest) 下载最新版：
 
-| 文件                                  | 用途                           |
-| ------------------------------------- | ------------------------------ |
-| `WMPFDebugger-Setup.exe`              | Windows x64 安装版，可覆盖升级 |
-| `WMPFDebugger-win32-x64-<版本号>.zip` | 绿色版，解压后直接运行         |
+| 文件 | 用途 |
+| --- | --- |
+| `WMPFDebugger-Setup.exe` | Windows x64 安装版 |
+| `WMPFDebugger-win32-x64-<版本号>.zip` | 绿色版，解压后运行 |
 
 绿色版必须完整解压，不能只复制 `WMPFDebugger.exe`，其旁边的 `resources` 等目录同样是运行所必需的。
 
-当前发布包尚未配置代码签名，Windows 首次运行时可能显示 SmartScreen 提示。
+当前发布包尚未配置代码签名，Windows 首次运行时可能显示 SmartScreen 提示。命令行用户可添加 `--auto-detect` 尝试自动检测偏移（Beta）。
 
 ## 使用方法
 
@@ -59,8 +56,9 @@
 
 ### 调试微信内置浏览器
 
-小程序连接成功后，打开“浏览器页面雷达”，扫描可调试目标并选择页面。入口小程序需要在
-浏览器调试期间保持运行。具体原理、限制和手动操作方式参见 [EXTENSION.md](EXTENSION.md)。
+小程序连接成功后，打开“浏览器页面雷达”，扫描可调试目标并选择页面。入口小程序需要在浏览器调试期间保持运行。参见 [EXTENSION.md](EXTENSION.md)。
+
+上游还提供 Linux x86_64 和 macOS arm64 版本适配；本 Electron 桌面打包流程仍面向 Windows x64。
 
 ## 本地开发
 
@@ -118,6 +116,8 @@ git push origin v1.0.2
 - [README.zh.md](README.zh.md)：上游功能和命令行用法说明。
 
 ## 致谢与版权
+
+本项目遵循 GPLv2。重新分发或发布衍生版本时，请保留适用的版权及许可证声明，并履行 GPLv2 对源代码的要求；同时请保留已有署名及贡献者信息。
 
 - 核心调试协议与注入实现来自 [evi0s/WMPFDebugger](https://github.com/evi0s/WMPFDebugger)；
 - `src/third-party` 中的代码提取自微信开发者工具，其版权归腾讯控股有限公司所有；

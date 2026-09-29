@@ -1,29 +1,29 @@
 # WMPFDebugger
 
-又一个 Windows 微信小程序调试工具
+又一个 Windows / macOS 微信小程序调试工具
 
 这个工具通过 patch 一些 Chrome 调试协议（CDP）的过滤器和其他的条件判断来强制小程序连接到外部调试器（也就是远程调试，LanDebug 模式）。这个调试协议是基于 protobuf 实现的私有协议，通过逆向开发者工具提取相应的协议实现，该工具实现了一个简单的小程序调试协议转换为标准 Chrome 调试协议，从而允许我们使用标准基于 chromium 浏览器的内嵌开发者工具来调试任意小程序
 
 
 ## 支持状态
 
-支持的 WMPF 版本：
+### Windows (x86_64) 支持
 
-* 25560 (最新)
-* 25510
-* 25364
-* 25297 (credit @Yinuo0602, @82539474)
-* 25268 (credit @RuntimeBroker)
-* 20089 (credit @lovejiuwu)
-* 20079 (credit @LiuYJia, @82539474)
-* 20005 (credit @LiuYJia)
-* 20001 (credit @B1397KB)
+* **自动检测**（Beta）
+* 25715（最新）、25710、25558、25510、25459、25364
+* 25560（本分支适配）及以下历史版本见后文
 
 
 <details>
 
 <summary>更早版本</summary>
 
+* 25297 (credit @Yinuo0602, @82539474)
+* 25268 (credit @RuntimeBroker)
+* 20089 (credit @lovejiuwu)
+* 20079 (credit @LiuYJia, @82539474)
+* 20005 (credit @LiuYJia)
+* 20001 (credit @B1397KB)
 * 19977 (credit @B1397KB, @yunm90872-ui, @chengzongcai)
 * 19921
 * 19899 (credit @mathmonkeyliu)
@@ -68,9 +68,11 @@
 
 </details>
 
+如何使用自动偏移检测：添加 `--auto-detect` 命令行参数。当前仅支持 Windows x86_64，且尚未测试稳定性
+
 如何调试微信内置浏览器页面：参见 [EXTENSION.md](EXTENSION.md)。注意，目前该方法仅有基础调试功能
 
-如何检查版本：打开任务管理器，找到 WeChatAppEx 进程，右键，打开文件所在的位置，检查在 `RadiumWMPF` 和 `extracted` 之间的数字
+如何检查版本：打开任务管理器，找到 WeChatAppEx 进程，右键，打开文件所在的位置，检查在 `RadiumWMPF` 和 `extracted` 之间的数字。
 
 如何适配到其他版本：参见 [ADAPTATION.md](ADAPTATION.md)。另外，你也可以提交版本适配的 Issue，我会尝试适配该版本如果我有相应的版本的 binary。仅更新版本的适配请求会被考虑
 
@@ -78,6 +80,26 @@
 
 如何更新到最新的 WMPF 版本（微信版本 < 4.x）：搜索框输入 `:showcmdwnd`（不要按回车触发搜索）弹出命令窗口，输入 `/plugin set_grayvalue=202&check_update_force` 并回车等待更新（如果有新版本）。重启微信以生效。
 
+### Linux (x86_64) 支持
+
+**支持的 WMPF 版本：**
+
+* 25665 (最新, credit @Redbeanw44602)
+* 14978 (credit @Redbeanw44602)
+* 14910 (credit, @CCLL-0x01)
+
+### macOS (arm64) 支持
+
+**支持的 WMPF 版本：**
+
+* 269136 (最新)
+
+如何检查版本：
+
+```bash
+# 查看版本字符串的数字
+grep CFBundleVersion -A 1 "/Applications/WeChat.app/Contents/MacOS/WeChatAppEx.app/Contents/Info.plist"
+```
 
 ## 准备
 
@@ -170,6 +192,17 @@ npx ts-node src/index.ts
 
 在提出新 Issue 前请**务必**阅读 FAQ。
 如果新 Issue 与 FAQ 中已有的问题重复，该 Issue 会被直接关闭且不会作出任何回复
+
+## 许可证与署名
+
+WMPFDebugger 使用 **GNU General Public License v2.0（GPLv2）** 许可证发布。
+
+如果你重新分发、修改或发布本项目的衍生版本，你**必须遵守 GPLv2 的相关要求**，包括保留适用的版权及许可证声明，并在分发受 GPLv2 约束的二进制文件或修改版本时履行相应的源代码提供义务。
+
+请**不要删除项目中已有的署名及贡献者信息**。如果你的项目基于 WMPFDebugger 或由其衍生而来，我们也希望你能够明确注明 **WMPFDebugger 及其贡献者** 为上游项目及原始贡献来源。
+
+> **遵守 GPLv2 是许可证所规定的义务；GPLv2 法定要求之外的署名，则是我们出于尊重所有贡献者工作的诚挚请求。**
+
 
 ## 免责声明
 

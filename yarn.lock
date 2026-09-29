@@ -1737,6 +1737,11 @@ frida@^17.3.2:
   version "17.3.2"
   resolved "https://registry.yarnpkg.com/frida/-/frida-17.3.2.tgz#6408bf399f1b9a9bda412b056bac3d3f328c7613"
   integrity sha512-FG02MkCv9anzN7yYRML2cTfjGoCKEnIWdCsthX4ZONtJhyJ+lXePqnOxAb5BaM0+WyWoJ5A8K4qcf1pf0q9cWg==
+
+frida@^17.18.0:
+  version "17.18.0"
+  resolved "https://registry.yarnpkg.com/frida/-/frida-17.18.0.tgz#0d7dc9ce4a58949a8bc77024e0b3ccb5932b0ce7"
+  integrity sha512-pyx+1fhjQUDFEnYoy0ZK4kaTpjqMKBRCNkyAgVvnQkxhuWqs1EKOV4FY6Dihy5pr3g+B1HH3QiXHE4BmAnz+TA==
   dependencies:
     bindings "^1.5.0"
     minimatch "^10.0.1"
